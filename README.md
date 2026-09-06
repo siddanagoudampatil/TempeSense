@@ -1,6 +1,7 @@
 # TempeSense: Autonomous Civic Intelligence & ArcGIS Query Agent for the City of Tempe
-**Course**: ASU CSE 598 — Agentic AI (Capstone Proposal Baseline)  
-**Student**: `Siddanagouda Patil (spati193@asu.edu)`  
+
+**Course**: ASU CSE 598 — Agentic AI (Capstone Proposal Baseline)
+**Student**: `Siddanagouda Patil (spati193@asu.edu)`
 **Target Municipal Domain**: City of Tempe Open Data & ArcGIS REST APIs
 
 ---
@@ -10,12 +11,14 @@
 Citizens, students, neighborhood advocates, and urban planners struggle to extract actionable insights from siloed municipal open-data portals. Cities like Tempe publish millions of records across public ArcGIS REST APIs, but querying them requires knowing SQL-like WHERE syntax, spatial coordinate codes, and API pagination parameters.
 
 The **TempeSense** agent is an autonomous **ReAct (Reasoning + Acting)** civic agent designed to bridge everyday human questions to multi-domain municipal services:
+
 - **Public Safety & Community Reports**: General offenses, incident patterns, and localized safety trends.
 - **Traffic, Transit & Active Street Closures**: Road construction barricades, traffic restrictions, and detour status (e.g. "Is University Dr open?").
 - **Housing, Infrastructure & Code Compliance**: Building permits, zoning codes, and property compliance records.
 - **Environmental Sustainability & Services**: Solid waste landfill diversion, recycling performance, and city service schedules.
 
 > **Baseline vs. Full System Output**:
+>
 > - **Full System Vision**: Plain-English, conversational synthesis that anyone—regardless of technical background—can immediately understand (e.g. explaining which street lanes are blocked, detour suggestions, or neighborhood activity summaries in everyday language), paired with verifiable source citations.
 > - **Week 1 Baseline**: The runnable script in this repository implements the foundational proof-of-concept on the live City of Tempe General Offenses FeatureServer, displaying an auditable tabular breakdown demonstrating schema-constrained parameter extraction, multi-possibility exploration (`PlaceName`, `ObfuscatedAddress`, `CharacterArea`), and grounding verification before multi-tool expansion.
 
@@ -36,6 +39,7 @@ The **TempeSense** agent is an autonomous **ReAct (Reasoning + Acting)** civic a
 ## 3. Quickstart & Reproducibility Instructions
 
 ### Step 1: Clone Repository & Setup Virtual Environment
+
 ```bash
 # Clone repository (HTTPS)
 git clone https://github.com/siddanagoudampatil/TempeSense.git
@@ -55,14 +59,17 @@ source .venv/bin/activate
 ```
 
 ### Step 2: Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Step 3: Environment Configuration
+
 The agent queries the **City of Tempe Public ArcGIS REST API**, which requires **no municipal API key or registration**.
 
 To configure your LLM endpoint (e.g. ASU Research Computing endpoint with `llama4-scout-17b`):
+
 ```bash
 cp .env.example .env
 # Ensure .env contains:
@@ -76,7 +83,9 @@ cp .env.example .env
 ## 4. Running the Baseline
 
 ### Command: Live City of Tempe Query
+
 Execute the agent against the live Tempe General Offenses FeatureServer:
+
 ```bash
 python run_municipal_agent.py --query "Retrieve the five most recent general offenses reported in the downtown sector."
 ```
@@ -86,9 +95,11 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 ## 5. Concrete Test Case & Expected Output
 
 ### Input Query:
+
 > `"Retrieve the five most recent general offenses reported in the downtown sector."`
 
 ### Expected Terminal Output:
+
 ```text
 ================================================================================
   TEMPESENSE: AUTONOMOUS AGENT RUN
@@ -138,6 +149,7 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 ## 6. Automated Testing
 
 Run the test suite to verify schema validation, anti-hallucination guardrails, and deterministic tool execution:
+
 ```bash
 # Using pytest
 pytest test_baseline.py -v
@@ -145,10 +157,30 @@ pytest test_baseline.py -v
 # Or directly with Python
 python test_baseline.py
 ```
+
 **Expected Result**: `All 6 tests passed successfully (< 1.0s)`.
 
 ---
 
 ## 7. Known Setup Limitations & Next Steps
-- **Pagination**: The baseline caps results at 50 records; multi-page retrieval will be added in Phase 2 using a LangGraph state machine.
-- **Single Tool Scope**: The baseline integrates one endpoint (`General Offenses`); Phase 2 will chain multiple tools (`Address Reporter`, `Solid Waste Landfill Diversion`).
+
+### Current Baseline Limitations
+
+1. **Single-Tool Scope**: The baseline currently interfaces exclusively with the City of Tempe General Offenses FeatureServer. Natural language queries regarding street closures, traffic barricades, building permits, or sanitation schedules require expanding to their respective service endpoints.
+2. **Single-Page Retrieval Ceiling**: Results are bounded to a single page (up to 50 records) to maintain constrained context windows before stateful pagination is introduced.
+3. **Cross-Dataset Joins**: Multi-hop reasoning across independent municipal layers (e.g., correlating road construction barricades with detour advisories or neighborhood safety trends) is not yet supported.
+
+### Planned Next Steps for Full System
+
+1. **Plain-Language Narrative Synthesis**:
+   - Transition from raw tabular audit views to intuitive, conversational synthesis that translates technical municipal database fields into everyday English for residents, students, and city staff, while maintaining verifiable citations.
+2. **Multi-Tool Graph Orchestration (LangGraph)**:
+   - Expand the single-tool ReAct loop into a stateful **LangGraph state machine** routing dynamically across four core City of Tempe public datasets:
+     - **Public Safety**: General Offenses (current baseline).
+     - **Traffic & Active Street Closures**: Road construction barricades, restrictions, and detour statuses.
+     - **Housing & Infrastructure**: Building code compliance, permits, and zoning records.
+     - **Environmental Sustainability**: Solid waste landfill diversion and recycling metrics.
+3. **Cross-Dataset Join & Spatial Reasoning**:
+   - Implement multi-hop query planning to correlate multiple endpoints (e.g., assessing whether street closures coincide with localized event traffic or infrastructure permits).
+4. **Autonomous Pagination & Result Streaming**:
+   - Dynamically handle ArcGIS `exceededTransferLimit` tokens using automated cursor-based pagination loops for broad temporal and district-wide queries.
