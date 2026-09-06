@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TempeSense: Autonomous Civic REST Query & Synthesis Agent
+TempeSense: Autonomous Civic Intelligence & ArcGIS Query Agent for the City of Tempe
 Course: ASU CSE 598 - Agentic AI (Capstone Proposal Baseline)
 
 This script implements an autonomous ReAct (Reasoning + Acting) tool-calling agent

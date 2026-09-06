@@ -1,4 +1,4 @@
-# TempeSense: Autonomous Civic REST Query & Synthesis Agent
+# TempeSense: Autonomous Civic Intelligence & ArcGIS Query Agent for the City of Tempe
 **Course**: ASU CSE 598 — Agentic AI (Capstone Proposal Baseline)  
 **Student**: `Siddanagouda Patil (spati193@asu.edu)`  
 **Target Municipal Domain**: City of Tempe Open Data & ArcGIS REST APIs
