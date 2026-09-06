@@ -19,10 +19,8 @@ import requests
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from dotenv import load_dotenv
 
-# Load environment variables (.env or ,env fallback)
+# Load environment variables from .env
 load_dotenv()
-if not os.getenv("OPENAI_API_KEY") and os.path.exists(",env"):
-    load_dotenv(",env")
 
 # City of Tempe Public ArcGIS REST FeatureServer Query Endpoint (0 authentication required)
 TEMPE_OFFENSES_ENDPOINT = (
@@ -80,11 +78,12 @@ def validate_where_clause(where_clause: str) -> List[str]:
     }
 
     tokens = re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", clean_sql)
+    valid_upper = {f.upper() for f in VALID_SCHEMA_FIELDS}
     invalid_fields = []
     for token in tokens:
         if token.upper() in sql_tokens or token.isdigit():
             continue
-        if token not in VALID_SCHEMA_FIELDS:
+        if token.upper() not in valid_upper:
             invalid_fields.append(token)
     return invalid_fields
 
@@ -255,11 +254,11 @@ class MunicipalAgent:
         print("\n[STEP 4: RETRIEVED MUNICIPAL RECORDS]")
         self._display_records(features)
 
-        # Step 5: Anti-Hallucination & Grounding Audit
-        print("\n[VERIFICATION & GROUNDING AUDIT]")
-        print("  ✓ Schema Integrity: All query parameters strictly verified against City of Tempe schema.")
-        print("  ✓ Data Provenance: 100% of data retrieved directly from live City of Tempe ArcGIS REST server.")
-        print("  ✓ Zero Hallucination Guarantee: No synthetic, extrapolated, or invented data presented.")
+        # Step 5: Grounding & Schema Audit
+        print("\n[GROUNDING & SCHEMA AUDIT]")
+        print("  [AUDIT] Schema Check: All query parameters validated against verified ArcGIS fields.")
+        print("  [AUDIT] Provenance: Records retrieved live from City of Tempe ArcGIS REST API.")
+        print("  [AUDIT] Factuality: Direct server records; zero synthetic or imputed entries.")
 
         print("\n" + "=" * 80)
         print("  AGENT EXECUTION COMPLETE")
@@ -337,11 +336,11 @@ class MunicipalAgent:
                 temperature=0.0,
             )
             content = (response.choices[0].message.content or "").strip()
-            if content.startswith("```"):
-                content = content.strip("`")
-                if content.startswith("json"):
-                    content = content[4:].strip()
-            raw_json = json.loads(content)
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                raw_json = json.loads(json_match.group(0))
+            else:
+                raw_json = json.loads(content)
             return GeneralOffensesQueryArgs(**raw_json)
         except Exception as e:
             print(f"  [ERROR] LLM parameter extraction failed: {e}")

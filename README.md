@@ -17,7 +17,7 @@ The **TempeSense** agent is an autonomous **ReAct (Reasoning + Acting)** civic a
 
 > **Baseline vs. Full System Output**:
 > - **Full System Vision**: Plain-English, conversational synthesis that anyone—regardless of technical background—can immediately understand (e.g. explaining which street lanes are blocked, detour suggestions, or neighborhood activity summaries in everyday language), paired with verifiable source citations.
-> - **Week 1 Baseline**: The runnable script in this repository implements the foundational proof-of-concept on the live City of Tempe General Offenses FeatureServer, displaying an auditable tabular breakdown to mathematically prove dynamic parameter extraction, multi-possibility exploration (`PlaceName`, `ObfuscatedAddress`, `CharacterArea`), and zero hallucination before multi-tool expansion.
+> - **Week 1 Baseline**: The runnable script in this repository implements the foundational proof-of-concept on the live City of Tempe General Offenses FeatureServer, displaying an auditable tabular breakdown demonstrating schema-constrained parameter extraction, multi-possibility exploration (`PlaceName`, `ObfuscatedAddress`, `CharacterArea`), and grounding verification before multi-tool expansion.
 
 ---
 
@@ -37,8 +37,12 @@ The **TempeSense** agent is an autonomous **ReAct (Reasoning + Acting)** civic a
 
 ### Step 1: Clone Repository & Setup Virtual Environment
 ```bash
-git clone git@github.com:siddanagoudampatil/TempeSense.git
+# Clone repository (HTTPS)
+git clone https://github.com/siddanagoudampatil/TempeSense.git
 cd TempeSense
+
+# Or via SSH:
+# git clone git@github.com:siddanagoudampatil/TempeSense.git
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -92,17 +96,18 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 [INPUT QUERY]: "Retrieve the five most recent general offenses reported in the downtown sector."
 
 [STEP 1: PERCEPTION & INTENT MAPPING]
-  Selected Tool: query_tempe_general_offenses
-  Target Service: City of Tempe ArcGIS REST FeatureServer (Public)
+  Selected Tool:    query_tempe_general_offenses
+  Target Service:   City of Tempe ArcGIS REST FeatureServer (Public)
+  AI Model:         llama4-scout-17b (via https://openai.rc.asu.edu/v1)
 
-[STEP 2: REASONING & PARAMETER EXTRACTION]
+[STEP 2: MULTI-POSSIBILITY REASONING & SCHEMA VALIDATION]
   Pydantic Validated Tool Arguments:
     - where:               CharacterArea LIKE '%DT%'
-    - out_fields:          PrimaryKey,OffenseCustom,LocationTranslation,CharacterArea,PostalCode,OccurrenceYear,OccurrenceMonth,ObfuscatedAddress
+    - out_fields:          PrimaryKey,OffenseCustom,LocationTranslation,CharacterArea,PostalCode,OccurrenceYear,OccurrenceMonth,ObfuscatedAddress,PlaceName
     - result_record_count: 5
     - order_by_fields:     OBJECTID DESC
 
-[STEP 3: TOOL EXECUTION (HTTP GET)]
+[STEP 3: TOOL EXECUTION & POSSIBILITIES EXPLORATION]
   Endpoint: https://services.arcgis.com/lQySeXwbBg53XWDi/arcgis/rest/services/General_Offenses_(Open_Data)/FeatureServer/0/query
   HTTP Status: 200 OK
   Records Ingested: 5 feature records
@@ -110,13 +115,18 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 [STEP 4: RETRIEVED MUNICIPAL RECORDS]
   Successfully retrieved 5 record(s):
 
-  | Primary Key   | Offense Description                    | Location Type              | Address                | Period  |
-  | ------------- | -------------------------------------- | -------------------------- | ---------------------- | ------- |
-  | TE202687046   | [90J] TRESPASSING [DV]                 | Residence/Home             | 7XX W 19TH ST          | 2026-08 |
-  | TE202679703   | [35A] DRUG/NARCOTIC OFFENSE (INCL C... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE    | 2026-08 |
-  | TE202684891   | [90B] CURFEW/LOITERING/VAGRANCY VIO... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE    | 2026-08 |
-  | TE202677062   | [290] CRIMINAL DAMAGE - $1000 OR AB... | Parking/Drop Lot/Garage    | 1XXX S TERRACE RD      | 2026-07 |
-  | TE202680354   | [90C] DISORDERLY CONDUCT               | Drug Store/Dr.'s Office... | 1XXX S MILL AVE        | 2026-08 |
+  | Primary Key   | Offense Description                    | Location Type              | Place / Address                    | Period  |
+  | ------------- | -------------------------------------- | -------------------------- | ---------------------------------- | ------- |
+  | TE202687046   | [90J] TRESPASSING [DV]                 | Residence/Home             | 7XX W 19TH ST                      | 2026-08 |
+  | TE202679703   | [35A] DRUG/NARCOTIC OFFENSE (INCL C... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE                | 2026-08 |
+  | TE202684891   | [90B] CURFEW/LOITERING/VAGRANCY VIO... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE                | 2026-08 |
+  | TE202677062   | [290] CRIMINAL DAMAGE - $1000 OR AB... | Parking/Drop Lot/Garage    | 1XXX S TERRACE RD                  | 2026-07 |
+  | TE202680354   | [90C] DISORDERLY CONDUCT               | Drug Store/Dr.'s Office... | 1XXX S MILL AVE                    | 2026-08 |
+
+[GROUNDING & SCHEMA AUDIT]
+  [AUDIT] Schema Check: All query parameters validated against verified ArcGIS fields.
+  [AUDIT] Provenance: Records retrieved live from City of Tempe ArcGIS REST API.
+  [AUDIT] Factuality: Direct server records; zero synthetic or imputed entries.
 
 ================================================================================
   AGENT EXECUTION COMPLETE
@@ -125,13 +135,17 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 
 ---
 
-## 6. Automated Testing (Pytest)
+## 6. Automated Testing
 
-Run the test suite to verify schema validation, query parameter construction, and mock execution:
+Run the test suite to verify schema validation, anti-hallucination guardrails, and deterministic tool execution:
 ```bash
+# Using pytest
 pytest test_baseline.py -v
+
+# Or directly with Python
+python test_baseline.py
 ```
-**Expected Result**: `5 passed in < 1.0s`.
+**Expected Result**: `All 6 tests passed successfully (< 1.0s)`.
 
 ---
 
