@@ -38,6 +38,36 @@ The **TempeSense** agent is an autonomous **ReAct (Reasoning + Acting)** civic a
 
 ## 3. Quickstart & Reproducibility Instructions
 
+### Prerequisites: Installing Python 3.10+
+
+The agent requires **Python 3.10 or higher**. If Python 3 is not yet installed on your system, install it using the command for your operating system:
+
+- **Ubuntu / Debian / WSL (Linux)**:
+  ```bash
+  sudo apt update
+  sudo apt install -y python3 python3-venv python3-pip
+  ```
+- **macOS**:
+  ```bash
+  # Using Homebrew:
+  brew install python
+  # Or download the official installer: https://www.python.org/downloads/macos/
+  ```
+- **Windows**:
+  ```powershell
+  # Using Windows Package Manager (winget):
+  winget install Python.Python.3.11
+  # Or download the official 64-bit installer from https://www.python.org/downloads/windows/
+  # (IMPORTANT: Check the box "Add python.exe to PATH" during setup).
+  ```
+
+Verify your Python installation:
+```bash
+python3 --version
+```
+
+---
+
 ### Step 1: Clone Repository & Setup Virtual Environment
 
 ```bash
@@ -48,14 +78,15 @@ cd TempeSense
 # Or via SSH:
 # git clone git@github.com:siddanagoudampatil/TempeSense.git
 
-# Create and activate virtual environment
-python -m venv .venv
+# Create virtual environment using python3
+python3 -m venv .venv
+
+# Activate virtual environment
+# On macOS/Linux/WSL:
+source .venv/bin/activate
 
 # On Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
-
-# On macOS/Linux:
-source .venv/bin/activate
+# .\.venv\Scripts\Activate.ps1
 ```
 
 ### Step 2: Install Dependencies
@@ -84,10 +115,10 @@ cp .env.example .env
 
 ### Command: Live City of Tempe Query
 
-Execute the agent against the live Tempe General Offenses FeatureServer:
+Execute the agent against the live Tempe General Offenses FeatureServer using `python3`:
 
 ```bash
-python run_municipal_agent.py --query "Retrieve the five most recent general offenses reported in the downtown sector."
+python3 run_municipal_agent.py --query "Retrieve the five most recent general offenses reported in the downtown sector."
 ```
 
 ---
@@ -98,7 +129,11 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
 
 > `"Retrieve the five most recent general offenses reported in the downtown sector."`
 
-### Expected Terminal Output:
+### Verified Live Execution Screenshot:
+
+![TempeSense Live Terminal Baseline Run](assets/baseline_run_screenshot.png)
+
+### Terminal Text Log:
 
 ```text
 ================================================================================
@@ -124,15 +159,15 @@ python run_municipal_agent.py --query "Retrieve the five most recent general off
   Records Ingested: 5 feature records
 
 [STEP 4: RETRIEVED MUNICIPAL RECORDS]
-  Successfully retrieved 5 record(s):
+  Successfully retrieved 5 verified record(s):
 
-  | Primary Key   | Offense Description                    | Location Type              | Place / Address                    | Period  |
-  | ------------- | -------------------------------------- | -------------------------- | ---------------------------------- | ------- |
-  | TE202687046   | [90J] TRESPASSING [DV]                 | Residence/Home             | 7XX W 19TH ST                      | 2026-08 |
-  | TE202679703   | [35A] DRUG/NARCOTIC OFFENSE (INCL C... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE                | 2026-08 |
-  | TE202684891   | [90B] CURFEW/LOITERING/VAGRANCY VIO... | Highway/Road/Alley/Stre... | 5TH ST / S MILL AVE                | 2026-08 |
-  | TE202677062   | [290] CRIMINAL DAMAGE - $1000 OR AB... | Parking/Drop Lot/Garage    | 1XXX S TERRACE RD                  | 2026-07 |
-  | TE202680354   | [90C] DISORDERLY CONDUCT               | Drug Store/Dr.'s Office... | 1XXX S MILL AVE                    | 2026-08 |
+  | Primary Key | Offense Description         | Location Type          | Place / Address                    | Period  |
+  | ----------- | --------------------------- | ---------------------- | ---------------------------------- | ------- |
+  | TE202690078 | [11A] SEXUAL ASSAULT        | Residence/Home         | VALOR ON EIGHTH (1XXX E 8TH ST)    | 2026-09 |
+  | TE202690088 | [11A] SEXUAL ASSAULT        | Residence/Home         | VERO (6XX E 6TH ST)                | 2026-09 |
+  | TE202688834 | None                        | None                   | 7XX W 5TH ST                       | 2026-09 |
+  | TE202688385 | [SC-0] SUSPICIOUS PERSON    | Highway/Road/Alley/... | TEMPE HIGH SCHOOL (1XXX S MILL ... | 2026-08 |
+  | TE202685670 | [GO-0] ACCIDENT - NO INJURY | Highway/Road/Alley/... | RURAL RD / E SPENCE AVE            | 2026-08 |
 
 [GROUNDING & SCHEMA AUDIT]
   [AUDIT] Schema Check: All query parameters validated against verified ArcGIS fields.
@@ -154,8 +189,8 @@ Run the test suite to verify schema validation, anti-hallucination guardrails, a
 # Using pytest
 pytest test_baseline.py -v
 
-# Or directly with Python
-python test_baseline.py
+# Or directly with python3
+python3 test_baseline.py
 ```
 
 **Expected Result**: `All 6 tests passed successfully (< 1.0s)`.
