@@ -290,19 +290,27 @@ python3 --version
    pip install -r requirements.txt
    ```
 4. **Configure Environment Variables**:
-   The City of Tempe ArcGIS REST API requires **no municipal API key**. An `OPENAI_API_KEY` is required only for LLM parameter extraction via ASU Research Computing:
+   The City of Tempe ArcGIS REST API requires **no municipal API key**. The agent is provider-agnostic and can use **any LLM** (such as **ASU Research Computing**, **Gemini**, **Claude**, **OpenAI**, **Llama**, etc.) via OpenAI-compatible endpoints—simply replace the base URL, API key, and model name accordingly:
 
    ```bash
    cp .env.example .env
    ```
 
-   Ensure `.env` contains:
+   Configure `.env` with your preferred model provider:
 
    ```bash
-   OPENAI_API_KEY=your_asu_or_openai_api_key
+   OPENAI_API_KEY=your_api_key_here
    OPENAI_BASE_URL=https://openai.rc.asu.edu/v1
    OPENAI_MODEL=llama4-scout-17b
    ```
+
+   *(You can plug in any LLM provider by adjusting `.env`)*:
+
+   - **ASU Research Computing (Default / Active Setup)**: `OPENAI_BASE_URL=https://openai.rc.asu.edu/v1`, `OPENAI_MODEL=llama4-scout-17b`. Generate your API token at [voyager.rc.asu.edu/profile?tab=llm-access](https://voyager.rc.asu.edu/profile?tab=llm-access) and review the [ASU RC AI Getting Started Guide](https://docs.rc.asu.edu/ai/getting-started). *(Note: Connecting to ASU RC LLM endpoints requires an active ASU VPN connection).*
+   - **Google Gemini**: `OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/`, `OPENAI_MODEL=gemini-1.5-flash` (or `gemini-2.5-flash`), with your Gemini API key.
+   - **Anthropic Claude**: Via OpenRouter or LiteLLM (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`, `OPENAI_MODEL=anthropic/claude-3.5-sonnet`).
+   - **OpenAI**: `OPENAI_BASE_URL=https://api.openai.com/v1`, `OPENAI_MODEL=gpt-4o-mini`.
+   - **Local / Open-Source (Ollama / vLLM / Groq)**: Point `OPENAI_BASE_URL` to your local or hosted OpenAI-compatible server.
 
 ### 5.3 Execution Commands
 
@@ -331,11 +339,11 @@ To rigorously measure improvements as TempeSense evolves from the baseline into 
 
 ### 6.1 Evaluation Dimensions & Metrics
 
-| Dimension                        | Metric                                  | Definition & Target                                                                                                                                                                                                                                   |
-| :------------------------------- | :-------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dimension                        | Metric                                  | Definition & Target                                                                                                                                                                                                                                               |
+| :------------------------------- | :-------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Query Routing & Syntax** | **Tool Call Success Rate (TCSR)** | Evaluates the agent's ability to autonomously construct valid ArcGIS query syntax across a curated benchmark test bank of representative civic queries.**Target: $\ge 90\%$** returning HTTP 200 OK without Pydantic exceptions or ArcGIS SQL 400 errors. |
-| **Factuality & Grounding** | **Faithfulness (RAGAS)**          | Measures whether 100% of claims, dates, and incident identifiers in the synthesized response are directly grounded in the retrieved JSON payload.**Target: $\ge 0.95$ score**.                                                                |
-| **Civic Relevancy**        | **Answer Relevancy (RAGAS)**      | Measures semantic cosine similarity between the citizen's original inquiry and the agent's synthesized response.**Target: $\ge 0.85$ score**.                                                                                                 |
+| **Factuality & Grounding** | **Faithfulness (RAGAS)**          | Measures whether 100% of claims, dates, and incident identifiers in the synthesized response are directly grounded in the retrieved JSON payload.**Target: $\ge 0.95$ score**.                                                                            |
+| **Civic Relevancy**        | **Answer Relevancy (RAGAS)**      | Measures semantic cosine similarity between the citizen's original inquiry and the agent's synthesized response.**Target: $\ge 0.85$ score**.                                                                                                             |
 
 ### 6.2 Benchmark Test Bank Construction
 
@@ -346,7 +354,6 @@ A curated test bank of **representative civic queries** spanning 5 core difficul
 3. **Corridor & Sector Filters** (e.g., *"Incidents on Mill Ave"*, *"Downtown sector offenses"*).
 4. **Ambiguous Landmark Queries** (e.g., *"Offenses near Valor on Eighth"*, *"Incidents near Tempe High School"*).
 5. **Zero-Record Fallback & Multi-Service Queries** (testing dynamic filter relaxation when initial strict queries return no records, and cross-routing to street closures or code compliance).
-
 
 ---
 
