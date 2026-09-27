@@ -18,9 +18,6 @@ from run_municipal_agent import (
     TempeSenseAgent,
     ToolRegistry,
     build_default_tool_registry,
-    execute_tempe_offenses_query,
-    execute_tempe_street_closures_query,
-    validate_where_clause,
 )
 
 
@@ -49,16 +46,18 @@ def test_schema_rejects_out_of_bounds_count():
 
 def test_schema_anti_hallucination_validator():
     """Verify the SQL token validator detects invalid fields and allows verified schema fields."""
+    tool = GeneralOffensesTool()
+
     # Valid fields (including case-insensitivity)
     valid_where = "CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%THEFT%'"
-    assert validate_where_clause(valid_where) == []
+    assert tool.validate_where_clause(valid_where) == []
 
     # Valid lowercase field
-    assert validate_where_clause("characterarea LIKE '%ASU%'") == []
+    assert tool.validate_where_clause("characterarea LIKE '%ASU%'") == []
 
     # Hallucinated fields (e.g. City, Location, Area)
     invalid_where = "City = 'Tempe' AND Location = 'Downtown' AND CharacterArea LIKE '%DT%'"
-    invalid_fields = validate_where_clause(invalid_where)
+    invalid_fields = tool.validate_where_clause(invalid_where)
     assert "City" in invalid_fields
     assert "Location" in invalid_fields
     assert "CharacterArea" not in invalid_fields
@@ -175,7 +174,8 @@ def test_execute_tempe_offenses_query_live():
         result_record_count=3,
         order_by_fields="OBJECTID DESC",
     )
-    data = execute_tempe_offenses_query(args)
+    tool = GeneralOffensesTool()
+    data = tool.execute(args)
     assert "features" in data
     assert len(data["features"]) == 3
     assert "attributes" in data["features"][0]
@@ -189,7 +189,8 @@ def test_execute_tempe_street_closures_query_live():
         result_record_count=3,
         order_by_fields="OBJECTID DESC",
     )
-    data = execute_tempe_street_closures_query(args)
+    tool = StreetClosuresTool()
+    data = tool.execute(args)
     assert "features" in data
     assert len(data["features"]) == 3
     assert "attributes" in data["features"][0]

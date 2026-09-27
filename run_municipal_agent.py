@@ -139,9 +139,6 @@ GENERAL_OFFENSES_VALID_FIELDS: Set[str] = {
     "NeighborhoodName",
 }
 
-# Backward compatibility alias
-VALID_SCHEMA_FIELDS: Set[str] = GENERAL_OFFENSES_VALID_FIELDS
-
 
 class GeneralOffensesQueryArgs(BaseModel):
     """Structured arguments for querying the City of Tempe General Offenses layer."""
@@ -268,14 +265,6 @@ class GeneralOffensesTool(BaseMunicipalTool):
             period = f"{year}-{month:02d}" if isinstance(month, int) else f"{year}"
             print(f"  | {pk:<13} | {offense:<34} | {loc:<22} | {loc_detail:<34} | {period:<7} |")
 
-
-def execute_tempe_offenses_query(args: GeneralOffensesQueryArgs) -> Dict[str, Any]:
-    """
-    Executes an HTTP GET query against the City of Tempe General Offenses ArcGIS REST endpoint.
-    Maintained for direct invocation and backward compatibility.
-    """
-    tool = GeneralOffensesTool()
-    return tool.execute(args)
 
 
 # ==============================================================================
@@ -438,31 +427,6 @@ class StreetClosuresTool(BaseMunicipalTool):
             status = str(attrs.get("PermitStatus") or "Unknown")[:8]
             print(f"  | {permit:<11} | {street:<18} | {bounds:<28} | {restriction:<20} | {work:<14} | {status:<8} |")
 
-
-def execute_tempe_street_closures_query(args: StreetClosuresQueryArgs) -> Dict[str, Any]:
-    """
-    Executes an HTTP GET query against the City of Tempe Street Closures ArcGIS REST endpoint.
-    Maintained for direct invocation and testing.
-    """
-    tool = StreetClosuresTool()
-    return tool.execute(args)
-
-
-# ==============================================================================
-# Backward Compatibility Schema Validator
-# ==============================================================================
-def validate_where_clause(
-    where_clause: str,
-    valid_fields: Optional[Set[str]] = None,
-) -> List[str]:
-    """
-    Validates that every field referenced in the SQL WHERE clause belongs to
-    the verified schema, eliminating parameter hallucinations.
-    Defaults to General Offenses schema if valid_fields is not provided.
-    Returns a list of any invalid fields found.
-    """
-    fields = valid_fields if valid_fields is not None else GENERAL_OFFENSES_VALID_FIELDS
-    return validate_sql_tokens(where_clause, fields)
 
 
 # ==============================================================================
@@ -634,10 +598,6 @@ class MunicipalAgent:
         except Exception as e:
             print(f"  [ERROR] LLM parameter extraction failed: {e}")
             raise
-
-    def _display_records(self, features: List[Dict[str, Any]]) -> None:
-        """Backward-compatible presentation method delegating to the default tool."""
-        self.registry.get_default_tool().display_records(features)
 
     def run(
         self, user_query: str, explicit_tool_name: Optional[str] = None
