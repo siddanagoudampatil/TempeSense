@@ -162,6 +162,14 @@ class GeneralOffensesQueryArgs(BaseModel):
         description="Attribute and sort direction, typically OBJECTID DESC for latest records.",
     )
 
+    @field_validator("out_fields", mode="before")
+    @classmethod
+    def coerce_out_fields(cls, v: Any) -> Any:
+        """LLMs often return a JSON list (e.g. ["*"]); ArcGIS expects a comma-separated string."""
+        if isinstance(v, (list, tuple)):
+            return ",".join(str(x).strip() for x in v if str(x).strip()) or "*"
+        return v
+
     @field_validator("order_by_fields", mode="before")
     @classmethod
     def sanitize_order_by(cls, v: Any) -> str:
@@ -328,6 +336,14 @@ class StreetClosuresQueryArgs(BaseModel):
         default="OBJECTID DESC",
         description="Attribute and sort direction, typically OBJECTID DESC or StartDate DESC.",
     )
+
+    @field_validator("out_fields", mode="before")
+    @classmethod
+    def coerce_out_fields(cls, v: Any) -> Any:
+        """LLMs often return a JSON list (e.g. ["*"]); ArcGIS expects a comma-separated string."""
+        if isinstance(v, (list, tuple)):
+            return ",".join(str(x).strip() for x in v if str(x).strip()) or "*"
+        return v
 
     @field_validator("order_by_fields", mode="before")
     @classmethod
@@ -585,16 +601,38 @@ class MunicipalAgent:
                     }
                 )
 
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.0,
-            )
-            content = (response.choices[0].message.content or "").strip()
-            json_match = re.search(r"\{.*\}", content, re.DOTALL)
-            raw_json = json.loads(json_match.group(0)) if json_match else json.loads(content)
-            return active_tool.args_schema(**raw_json)
+            max_attempts = 3
+            for attempt in range(1, max_attempts + 1):
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=0.0,
+                )
+                content = (response.choices[0].message.content or "").strip()
+                try:
+                    json_match = re.search(r"\{.*\}", content, re.DOTALL)
+                    raw_json = json.loads(json_match.group(0)) if json_match else json.loads(content)
+                    return active_tool.args_schema(**raw_json)
+                except ValueError as parse_err:  # JSONDecodeError and pydantic ValidationError
+                    if attempt == max_attempts:
+                        raise
+                    print(
+                        f"  [RETRY {attempt}/{max_attempts - 1}] LLM output rejected "
+                        f"({type(parse_err).__name__}); asking the model to correct it."
+                    )
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Your previous output was rejected: {parse_err}\n"
+                                "Return corrected JSON only. out_fields must be a single comma-separated "
+                                "string, result_record_count must be an integer from 1 to 50, and "
+                                "order_by_fields must be a string."
+                            ),
+                        }
+                    )
         except Exception as e:
             print(f"  [ERROR] LLM parameter extraction failed: {e}")
             raise
