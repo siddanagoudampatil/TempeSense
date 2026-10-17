@@ -36,10 +36,15 @@ def agent(monkeypatch):
     return TempeSenseAgent()
 
 
-@pytest.mark.parametrize("cls", [GeneralOffensesQueryArgs, StreetClosuresQueryArgs])
-def test_out_fields_list_is_coerced_to_string(cls):
-    assert cls(out_fields=["*"]).out_fields == "*"
-    assert cls(out_fields=["PrimaryKey", "OffenseCustom"]).out_fields == "PrimaryKey,OffenseCustom"
+@pytest.mark.parametrize(
+    "cls, fields",
+    [
+        (GeneralOffensesQueryArgs, ["PrimaryKey", "OffenseCustom"]),
+        (StreetClosuresQueryArgs, ["PermitNumber", "StreetLocation"]),
+    ],
+)
+def test_out_fields_list_is_coerced_to_string(cls, fields):
+    assert cls(out_fields=fields).out_fields == ",".join(fields)
 
 
 @pytest.mark.parametrize("cls", [GeneralOffensesQueryArgs, StreetClosuresQueryArgs])

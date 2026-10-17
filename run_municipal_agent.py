@@ -18,11 +18,21 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Type
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import requests
+
+from date_windows import (
+    AZ_TZ,
+    NAMED_SPECS,
+    is_valid_date_spec,
+    now_az,
+    overlap_clause,
+    resolve_date_window,
+)
 
 # Load environment variables from .env
 load_dotenv()
@@ -58,6 +68,34 @@ def validate_sql_tokens(where_clause: str, valid_fields: Set[str]) -> List[str]:
     return invalid_fields
 
 
+# Fields never requested from the API even though they exist in the layer: exact coordinates
+# would undercut the City's address masking.
+SENSITIVE_OUT_FIELDS = {"Latitude", "Longitude"}
+
+
+def sanitize_out_fields(value: Any, valid_fields: Set[str], default: str) -> str:
+    """Normalise the LLM's out_fields into a safe comma-separated string.
+
+    Accepts a string or a list; trims spaces; drops unknown and sensitive fields; and falls back
+    to `default` for "*" or when nothing valid remains.
+    """
+    if isinstance(value, (list, tuple)):
+        value = ",".join(str(x) for x in value)
+    if not isinstance(value, str) or not value.strip():
+        return default
+    valid_upper = {f.upper(): f for f in valid_fields}
+    blocked = {f.upper() for f in SENSITIVE_OUT_FIELDS}
+    kept: List[str] = []
+    for raw in value.split(","):
+        name = raw.strip()
+        if not name or name == "*":
+            continue
+        canonical = valid_upper.get(name.upper())
+        if canonical and canonical.upper() not in blocked and canonical not in kept:
+            kept.append(canonical)
+    return ",".join(kept) if kept else default
+
+
 # ==============================================================================
 # Base Tool Interface
 # ==============================================================================
@@ -77,10 +115,14 @@ class BaseMunicipalTool(abc.ABC):
         """Validates WHERE clause tokens against this tool's schema whitelist."""
         return validate_sql_tokens(where_clause, self.valid_schema_fields)
 
-    def execute(self, args: BaseModel) -> Dict[str, Any]:
+    def build_where(self, args: BaseModel, now: Optional[datetime] = None) -> str:
+        """Final WHERE clause sent to ArcGIS. Tools override this to add deterministic clauses."""
+        return getattr(args, "where", "1=1")
+
+    def execute(self, args: BaseModel, now: Optional[datetime] = None) -> Dict[str, Any]:
         """Executes an HTTP GET query against this tool's ArcGIS FeatureServer endpoint."""
         params = {
-            "where": getattr(args, "where", "1=1"),
+            "where": self.build_where(args, now),
             "outFields": getattr(args, "out_fields", "*"),
             "resultRecordCount": getattr(args, "result_record_count", 5),
             "orderByFields": getattr(args, "order_by_fields", "OBJECTID DESC"),
@@ -140,6 +182,9 @@ GENERAL_OFFENSES_VALID_FIELDS: Set[str] = {
 }
 
 
+DEFAULT_OFFENSES_OUT_FIELDS = "PrimaryKey,OffenseCustom,LocationTranslation,CharacterArea,PostalCode,OccurrenceYear,OccurrenceMonth,ObfuscatedAddress,PlaceName"
+
+
 class GeneralOffensesQueryArgs(BaseModel):
     """Structured arguments for querying the City of Tempe General Offenses layer."""
 
@@ -148,7 +193,7 @@ class GeneralOffensesQueryArgs(BaseModel):
         description="SQL-like WHERE clause filter strictly matching the verified schema.",
     )
     out_fields: str = Field(
-        default="PrimaryKey,OffenseCustom,LocationTranslation,CharacterArea,PostalCode,OccurrenceYear,OccurrenceMonth,ObfuscatedAddress,PlaceName",
+        default=DEFAULT_OFFENSES_OUT_FIELDS,
         description="Comma-separated field list to retrieve from the ArcGIS feature layer.",
     )
     result_record_count: int = Field(
@@ -164,11 +209,9 @@ class GeneralOffensesQueryArgs(BaseModel):
 
     @field_validator("out_fields", mode="before")
     @classmethod
-    def coerce_out_fields(cls, v: Any) -> Any:
-        """LLMs often return a JSON list (e.g. ["*"]); ArcGIS expects a comma-separated string."""
-        if isinstance(v, (list, tuple)):
-            return ",".join(str(x).strip() for x in v if str(x).strip()) or "*"
-        return v
+    def clean_out_fields(cls, v: Any) -> Any:
+        """Accept lists, trim spaces, drop unknown/sensitive fields, never request "*"."""
+        return sanitize_out_fields(v, GENERAL_OFFENSES_VALID_FIELDS, DEFAULT_OFFENSES_OUT_FIELDS)
 
     @field_validator("order_by_fields", mode="before")
     @classmethod
@@ -315,6 +358,9 @@ STREET_CLOSURES_VALID_FIELDS: Set[str] = {
 }
 
 
+DEFAULT_CLOSURES_OUT_FIELDS = "PermitNumber,StreetLocation,LocationFrom,LocationTo,RestrictionType,WorkType,PermitStatus,StartDate,EndDate,PermitAddress,TotalDurationDays"
+
+
 class StreetClosuresQueryArgs(BaseModel):
     """Structured arguments for querying City of Tempe Active Street Closures & Barricades."""
 
@@ -323,7 +369,7 @@ class StreetClosuresQueryArgs(BaseModel):
         description="SQL-like WHERE clause filter strictly matching the verified schema.",
     )
     out_fields: str = Field(
-        default="PermitNumber,StreetLocation,LocationFrom,LocationTo,RestrictionType,WorkType,PermitStatus,StartDate,EndDate,PermitAddress,TotalDurationDays",
+        default=DEFAULT_CLOSURES_OUT_FIELDS,
         description="Comma-separated field list to retrieve from the ArcGIS feature layer.",
     )
     result_record_count: int = Field(
@@ -337,13 +383,31 @@ class StreetClosuresQueryArgs(BaseModel):
         description="Attribute and sort direction, typically OBJECTID DESC or StartDate DESC.",
     )
 
+    date_range: Optional[str] = Field(
+        default=None,
+        description=(
+            "Time window the user asked about, e.g. this_weekend, today, next_week, last_month, "
+            "or YYYY-MM-DD..YYYY-MM-DD. Converted to exact dates by code; the model never writes dates."
+        ),
+    )
+
+    @field_validator("date_range", mode="before")
+    @classmethod
+    def validate_date_range(cls, v: Any) -> Any:
+        if v is None or (isinstance(v, str) and v.strip().lower() in {"", "none", "null"}):
+            return None
+        if not isinstance(v, str) or not is_valid_date_spec(v):
+            raise ValueError(
+                f"date_range {v!r} is not valid; use one of {', '.join(NAMED_SPECS)} "
+                "or YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD"
+            )
+        return v.strip()
+
     @field_validator("out_fields", mode="before")
     @classmethod
-    def coerce_out_fields(cls, v: Any) -> Any:
-        """LLMs often return a JSON list (e.g. ["*"]); ArcGIS expects a comma-separated string."""
-        if isinstance(v, (list, tuple)):
-            return ",".join(str(x).strip() for x in v if str(x).strip()) or "*"
-        return v
+    def clean_out_fields(cls, v: Any) -> Any:
+        """Accept lists, trim spaces, drop unknown/sensitive fields, never request "*"."""
+        return sanitize_out_fields(v, STREET_CLOSURES_VALID_FIELDS, DEFAULT_CLOSURES_OUT_FIELDS)
 
     @field_validator("order_by_fields", mode="before")
     @classmethod
@@ -370,11 +434,26 @@ class StreetClosuresTool(BaseMunicipalTool):
     endpoint = TEMPE_STREET_CLOSURES_ENDPOINT
     valid_schema_fields = STREET_CLOSURES_VALID_FIELDS
     args_schema = StreetClosuresQueryArgs
+    def validate_where_clause(self, where_clause: str) -> List[str]:
+        issues = super().validate_where_clause(where_clause)
+        if re.search(r"\b(StartDate|EndDate)\b\s*(<=|>=|<>|!=|<|>|=)", where_clause or "", re.IGNORECASE):
+            issues.append("StartDate/EndDate comparison in where (use the date_range key instead)")
+        return issues
+
+    def build_where(self, args: BaseModel, now: Optional[datetime] = None) -> str:
+        where = (getattr(args, "where", None) or "1=1").strip()
+        date_range = getattr(args, "date_range", None)
+        if not date_range:
+            return where
+        clause = overlap_clause("StartDate", "EndDate", resolve_date_window(date_range, now))
+        return clause if where in ("", "1=1") else f"({where}) AND {clause}"
+
     zero_records_hint = (
         "Explore alternative candidate possibilities: "
         "(1) If a street corridor with full suffix was used, search the root name in StreetLocation (e.g., StreetLocation LIKE '%UNIVERSITY%'). "
         "(2) Relax restrictive filters like RestrictionType = 'Roadway Closure' to search all active restrictions on that corridor. "
-        "(3) Check LocationFrom, LocationTo, or PermitAddress for matching cross streets."
+        "(3) Check LocationFrom, LocationTo, or PermitAddress for matching cross streets. "
+        "(4) Keep date_range exactly as the user asked: an empty result for the requested time window may be the correct answer."
     )
     system_prompt = (
         "You are an autonomous municipal query agent for the City of Tempe ArcGIS REST API.\n"
@@ -395,8 +474,7 @@ class StreetClosuresTool(BaseMunicipalTool):
         "- PermitStatus: Lifecycle state of the permit: 'Issued', 'Extended'\n"
         "- PermitAddress: Specific street address where permit was issued (e.g. PermitAddress LIKE '%UNIVERSITY%').\n"
         "- PermitNumber: Unique permit identifier (e.g. PermitNumber = 'TCP261099').\n"
-        "- StartDate: Unix timestamp (ms) of restriction start.\n"
-        "- EndDate: Unix timestamp (ms) of restriction end.\n"
+        "- StartDate / EndDate: DATE fields. NEVER compare them in the where clause and NEVER write date numbers. Use the date_range key instead.\n"
         "- TotalDurationDays: Total duration of restriction in days.\n\n"
         "SEARCH STRATEGY:\n"
         "1. If a specific street corridor is mentioned (e.g., 'University Dr', 'Mill Ave'), filter by StreetLocation:\n"
@@ -404,11 +482,15 @@ class StreetClosuresTool(BaseMunicipalTool):
         "2. If cross streets are mentioned, filter by LocationFrom/LocationTo or StreetLocation.\n"
         "3. If a specific work type is requested (e.g. 'sewer work', 'water repair'), filter WorkType LIKE '%SEWER%'.\n"
         "4. If a full closure is requested, filter RestrictionType LIKE '%Closure%'.\n"
-        "5. If no specific filter applies, default to '1=1'.\n\n"
+        "5. If the user mentions a time ('today', 'this weekend', 'next week', 'in March'), set date_range to one of: "
+    "today, tomorrow, yesterday, this_weekend, next_weekend, this_week, next_week, last_week, this_month, next_month, last_month, "
+    "next_7_days, next_30_days, last_7_days, last_30_days, or YYYY-MM-DD, or YYYY-MM-DD..YYYY-MM-DD. "
+    "For 'active', 'current' or 'ongoing' work with no time given, use today. Otherwise leave date_range null.\n"
+        "6. If no specific filter applies, default to '1=1'.\n\n"
         "ANTI-HALLUCINATION RULES:\n"
         "- ONLY use fields listed in the VALID SCHEMA FIELDS above. NEVER use 'StreetName', 'RoadName', 'ClosureType', 'Description', 'City', or 'Location'.\n"
         "- order_by_fields: ALWAYS use 'OBJECTID DESC' or 'StartDate DESC'. Default to 'OBJECTID DESC'.\n"
-        "- Output strictly a JSON object with keys: where, out_fields, result_record_count, order_by_fields."
+        "- Output strictly a JSON object with keys: where, out_fields, result_record_count, order_by_fields, date_range."
     )
 
     def display_records(self, features: List[Dict[str, Any]]) -> None:
@@ -508,6 +590,7 @@ class MunicipalAgent:
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://openai.rc.asu.edu/v1").strip()
         self.model = os.getenv("OPENAI_MODEL", "llama4-scout-17b").strip()
         self.registry = registry if registry is not None else build_default_tool_registry()
+        self.now_fn = now_az  # injectable clock (tests pin it); Arizona time, UTC-7
 
         if not self.api_key or self.api_key.startswith("your_"):
             raise ValueError(
@@ -574,6 +657,53 @@ class MunicipalAgent:
 
         return self.registry.get_default_tool().name
 
+    def _date_context(self) -> str:
+        now = self.now_fn()
+        return (
+            f"\n\nCURRENT DATE: {now:%A, %Y-%m-%d} (America/Phoenix, UTC-7, no daylight saving). "
+            f"The current year is {now.year} and the current month is {now.month}. "
+            "Use this for any relative date the user mentions."
+        )
+
+    def _extract_validated_args(
+        self,
+        user_query: str,
+        tool: BaseMunicipalTool,
+        initial_feedback: Optional[str] = None,
+        max_attempts: int = 3,
+    ) -> BaseModel:
+        """Extract arguments and re-ask the model until the guardrail accepts the where clause."""
+        feedback = initial_feedback
+        problems: List[str] = []
+        for _ in range(max_attempts):
+            args = self._llm_extract_parameters(user_query, tool=tool, error_feedback=feedback)
+            problems = tool.validate_where_clause(args.where)
+            if not problems:
+                return args
+            print(f"  [GUARDRAIL TRIGGERED] Rejected where clause: {problems}")
+            feedback = (
+                f"The WHERE clause '{args.where}' was rejected by the schema guardrail: {problems}. "
+                f"Use only these fields: {sorted(tool.valid_schema_fields)}."
+            )
+            if "date_range" in tool.args_schema.model_fields:
+                feedback += " Do not compare StartDate or EndDate in where; use the date_range key for time."
+        raise ValueError(f"guardrail still rejecting the where clause after {max_attempts} attempts: {problems}")
+
+    def _stop(self, user_query: str, tool: BaseMunicipalTool, reason: str) -> Dict[str, Any]:
+        """End a run cleanly with a readable reason instead of a traceback."""
+        print(f"  [STOP] {reason}")
+        print("\n" + "=" * 80)
+        print("  AGENT STOPPED WITHOUT RESULTS")
+        print("=" * 80 + "\n")
+        return {
+            "query": user_query,
+            "tool": tool.name,
+            "arguments": None,
+            "record_count": 0,
+            "records": [],
+            "error": reason,
+        }
+
     def _llm_extract_parameters(
         self,
         query: str,
@@ -587,7 +717,7 @@ class MunicipalAgent:
 
             client = OpenAI(base_url=self.base_url, api_key=self.api_key)
             messages = [
-                {"role": "system", "content": active_tool.system_prompt},
+                {"role": "system", "content": active_tool.system_prompt + self._date_context()},
                 {"role": "user", "content": query},
             ]
             if error_feedback:
@@ -662,62 +792,94 @@ class MunicipalAgent:
 
         # Step 2: Multi-Possibility Parameter Extraction & Schema Validation
         print("\n[STEP 2: MULTI-POSSIBILITY REASONING & SCHEMA VALIDATION]")
-        tool_args = self._llm_extract_parameters(user_query, tool=tool)
-
-        # Anti-Hallucination Guardrail Check
-        invalid_fields = tool.validate_where_clause(tool_args.where)
-        if invalid_fields:
-            print(f"  [GUARDRAIL TRIGGERED] Detected unverified fields: {invalid_fields}")
-            print("  Correcting query against verified schema...")
-            tool_args = self._llm_extract_parameters(
-                user_query,
-                tool=tool,
-                error_feedback=(
-                    f"Fields {invalid_fields} DO NOT exist in the {tool.name} schema. "
-                    f"You must strictly use verified fields from: {sorted(list(tool.valid_schema_fields))}"
-                ),
-            )
+        now = self.now_fn()
+        try:
+            tool_args = self._extract_validated_args(user_query, tool)
+        except Exception as exc:
+            return self._stop(user_query, tool, f"Could not build a valid query: {exc}")
 
         print("  Pydantic Validated Tool Arguments:")
         print(f"    - where:               {tool_args.where}")
         print(f"    - out_fields:          {tool_args.out_fields}")
         print(f"    - result_record_count: {tool_args.result_record_count}")
         print(f"    - order_by_fields:     {tool_args.order_by_fields}")
+        if getattr(tool_args, "date_range", None):
+            print(f"    - date_range:          {tool_args.date_range}")
 
         # Step 3: Tool Execution with Autonomous Exploration & Self-Correction
         print("\n[STEP 3: TOOL EXECUTION & POSSIBILITIES EXPLORATION]")
         print(f"  Endpoint: {tool.endpoint}")
+        final_where = tool.build_where(tool_args, now)
+        if final_where != tool_args.where:
+            print(f"  WHERE sent to ArcGIS: {final_where}")
 
-        try:
-            raw_payload = tool.execute(tool_args)
-        except Exception as primary_exc:
-            print(f"  [ERROR] Query failed ({primary_exc})")
-            print("  [STEP 3b: AGENTIC SELF-CORRECTION LOOP]")
-            tool_args = self._llm_extract_parameters(user_query, tool=tool, error_feedback=str(primary_exc))
+        raw_payload: Dict[str, Any] = {}
+        max_repairs = 2
+        for attempt in range(max_repairs + 1):
+            try:
+                raw_payload = tool.execute(tool_args, now=now)
+                break
+            except requests.RequestException as exc:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status != 400 or attempt == max_repairs:
+                    return self._stop(user_query, tool, f"Network or server problem, not a query problem: {exc}")
+                failure = str(exc)
+            except RuntimeError as exc:  # ArcGIS returned an error payload
+                if attempt == max_repairs:
+                    return self._stop(
+                        user_query, tool, f"ArcGIS still rejected the query after {max_repairs} corrections: {exc}"
+                    )
+                failure = str(exc)
+            except ValueError as exc:  # response was not valid JSON
+                return self._stop(user_query, tool, f"Unreadable response from the server: {exc}")
+
+            print(f"  [ERROR] Query failed ({failure})")
+            print(f"  [STEP 3b: AGENTIC SELF-CORRECTION LOOP {attempt + 1}/{max_repairs}]")
+            try:
+                tool_args = self._extract_validated_args(
+                    user_query,
+                    tool,
+                    initial_feedback=(
+                        f"ArcGIS rejected the previous query: {failure}. "
+                        f"The previous where clause was: {tool_args.where}"
+                    ),
+                )
+            except Exception as exc:
+                return self._stop(user_query, tool, f"Could not repair the query: {exc}")
             print(f"  Corrected WHERE clause: {tool_args.where}")
-            raw_payload = tool.execute(tool_args)
 
         features = raw_payload.get("features", [])
+        relaxed = False
 
         # If zero records returned, explore alternative query possibilities
         if len(features) == 0:
             print("  [STEP 3b: 0 RECORDS RETURNED — EXPLORING ALTERNATIVE POSSIBILITIES]")
             print(f"  Analyzing alternative candidate fields for {tool.name}...")
-            alt_args = self._llm_extract_parameters(
-                user_query,
-                tool=tool,
-                error_feedback=(
-                    f"The previous WHERE clause '{tool_args.where}' returned 0 records. "
-                    f"{tool.zero_records_hint}"
-                ),
-            )
-            print(f"  Alternative Candidate WHERE: {alt_args.where}")
-            alt_payload = tool.execute(alt_args)
-            alt_features = alt_payload.get("features", [])
+            alt_features: List[Dict[str, Any]] = []
+            alt_args = tool_args
+            try:
+                alt_args = self._extract_validated_args(
+                    user_query,
+                    tool,
+                    initial_feedback=(
+                        f"The previous WHERE clause '{tool_args.where}' returned 0 records. "
+                        f"{tool.zero_records_hint}"
+                    ),
+                )
+                print(f"  Alternative Candidate WHERE: {alt_args.where}")
+                alt_payload = tool.execute(alt_args, now=now)
+                alt_features = alt_payload.get("features", [])
+            except Exception as exc:
+                print(f"  [NOTICE] Alternative search failed ({exc}); keeping the original empty result.")
             if len(alt_features) > 0:
                 features = alt_features
+                original_where = tool.build_where(tool_args, now)
                 tool_args = alt_args
+                relaxed = True
                 print(f"  [SUCCESS] Exploration recovered {len(features)} verified feature record(s)!")
+                print("  [NOTICE] These come from a RELAXED query, not the original request.")
+                print(f"           Original: {original_where}")
+                print(f"           Relaxed:  {tool.build_where(tool_args, now)}")
             else:
                 print("  [NOTICE] Exhausted candidate possibilities; no matching municipal records found.")
 
@@ -743,6 +905,7 @@ class MunicipalAgent:
             "tool": tool.name,
             "arguments": tool_args.model_dump(),
             "record_count": len(features),
+            "relaxed": relaxed,
             "records": [f.get("attributes", {}) for f in features],
         }
 
