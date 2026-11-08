@@ -114,6 +114,12 @@ def _utc_literal(dt: datetime) -> str:
     return "TIMESTAMP '" + dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") + "'"
 
 
+def timestamp_range_clause(field: str, window: Tuple[datetime, datetime]) -> str:
+    """ArcGIS clause for a single timestamp field inside [start, end)."""
+    start, end = window
+    return f"({field} >= {_utc_literal(start)} AND {field} < {_utc_literal(end)})"
+
+
 def overlap_clause(start_field: str, end_field: str, window: Tuple[datetime, datetime]) -> str:
     """ArcGIS clause: the record's [start_field, end_field] period overlaps the window.
 

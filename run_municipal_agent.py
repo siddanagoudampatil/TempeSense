@@ -32,6 +32,7 @@ from date_windows import (
     now_az,
     overlap_clause,
     resolve_date_window,
+    timestamp_range_clause,
 )
 
 # Load environment variables from .env
@@ -206,6 +207,25 @@ class GeneralOffensesQueryArgs(BaseModel):
         default="OBJECTID DESC",
         description="Attribute and sort direction, typically OBJECTID DESC for latest records.",
     )
+    date_range: Optional[str] = Field(
+        default=None,
+        description=(
+            "Time window the user asked about, e.g. today, yesterday, this_weekend, last_week, "
+            "or YYYY-MM-DD..YYYY-MM-DD. Converted to exact dates by code; the model never writes dates."
+        ),
+    )
+
+    @field_validator("date_range", mode="before")
+    @classmethod
+    def validate_date_range(cls, v: Any) -> Any:
+        if v is None or (isinstance(v, str) and v.strip().lower() in {"", "none", "null"}):
+            return None
+        if not isinstance(v, str) or not is_valid_date_spec(v):
+            raise ValueError(
+                f"date_range {v!r} is not valid; use one of {', '.join(NAMED_SPECS)} "
+                "or YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD"
+            )
+        return v.strip()
 
     @field_validator("out_fields", mode="before")
     @classmethod
@@ -238,6 +258,20 @@ class GeneralOffensesTool(BaseMunicipalTool):
     endpoint = TEMPE_OFFENSES_ENDPOINT
     valid_schema_fields = GENERAL_OFFENSES_VALID_FIELDS
     args_schema = GeneralOffensesQueryArgs
+    def validate_where_clause(self, where_clause: str) -> List[str]:
+        issues = super().validate_where_clause(where_clause)
+        if re.search(r"\bOccurrenceDatetime\b\s*(<=|>=|<>|!=|<|>|=|BETWEEN)", where_clause or "", re.IGNORECASE):
+            issues.append("OccurrenceDatetime comparison in where (use the date_range key instead)")
+        return issues
+
+    def build_where(self, args: BaseModel, now: Optional[datetime] = None) -> str:
+        where = (getattr(args, "where", None) or "1=1").strip()
+        date_range = getattr(args, "date_range", None)
+        if not date_range:
+            return where
+        clause = timestamp_range_clause("OccurrenceDatetime", resolve_date_window(date_range, now))
+        return clause if where in ("", "1=1") else f"({where}) AND {clause}"
+
     zero_records_hint = (
         "Explore alternative candidate possibilities: "
         "(1) If you searched ObfuscatedAddress for a named complex or venue, try PlaceName LIKE '%keyword%'. "
@@ -264,19 +298,22 @@ class GeneralOffensesTool(BaseMunicipalTool):
         "- OffenseCustom: Crime/offense category (e.g., %THEFT%, %BURGLARY%, %DRUG%, %TRESPASS%, %ASSAULT%, %DAMAGE%, %DISORDERLY%).\n"
         "- LocationTranslation: General setting type (e.g. Residence/Home, Highway/Road/Alley/Street/Sidewalk, Parking/Drop Lot/Garage).\n"
         "- PostalCode: 5-digit ZIP code (e.g., '85281', '85282').\n"
-        "- NeighborhoodName: Formally recognized neighborhood.\n\n"
+        "- NeighborhoodName: Formally recognized neighborhood.\n"
+        "- OccurrenceDatetime: DATE field. NEVER compare it in the where clause and NEVER write date numbers. Use the date_range key instead.\n\n"
         "MULTI-POSSIBILITY SEARCH STRATEGY:\n"
         "1. If an entity could be either a named place or a street, use logical OR to explore both:\n"
         "   e.g. (PlaceName LIKE '%Paseo%' OR ObfuscatedAddress LIKE '%Paseo%')\n"
         "2. If an address with a house number is mentioned, search the street corridor in ObfuscatedAddress.\n"
         "3. If a district/campus is mentioned, search CharacterArea.\n"
         "4. If an offense category is requested alongside a location, combine with AND:\n"
-        "   e.g. CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%THEFT%'\n\n"
+        "   e.g. CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%THEFT%'\n"
+        "5. If the user mentions a time ('today', 'yesterday', 'this weekend', 'last week'), set date_range to a valid named window. "
+        "Keep date_range null when no time period is requested.\n\n"
         "ANTI-HALLUCINATION RULES:\n"
         "- ONLY use fields listed in the VALID SCHEMA FIELDS above. NEVER use 'Location', 'City', 'Address', or 'Area'.\n"
         "- 'General offenses' refers to the dataset itself; NEVER filter by (OffenseCustom LIKE '%GENERAL%'). Only filter OffenseCustom if a specific crime like 'theft' or 'burglary' is explicitly requested.\n"
         "- order_by_fields: ALWAYS use 'OBJECTID DESC' for latest events. Never use 'report_date'.\n"
-        "- Output strictly a JSON object with keys: where, out_fields, result_record_count, order_by_fields."
+        "- Output strictly a JSON object with keys: where, out_fields, result_record_count, order_by_fields, date_range."
     )
 
     def display_records(self, features: List[Dict[str, Any]]) -> None:
@@ -686,7 +723,7 @@ class MunicipalAgent:
                 f"Use only these fields: {sorted(tool.valid_schema_fields)}."
             )
             if "date_range" in tool.args_schema.model_fields:
-                feedback += " Do not compare StartDate or EndDate in where; use the date_range key for time."
+                feedback += " Do not write date comparisons in where; use the date_range key for time."
         raise ValueError(f"guardrail still rejecting the where clause after {max_attempts} attempts: {problems}")
 
     def _stop(self, user_query: str, tool: BaseMunicipalTool, reason: str) -> Dict[str, Any]:

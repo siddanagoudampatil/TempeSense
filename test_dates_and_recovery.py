@@ -8,9 +8,10 @@ import pytest
 import requests
 from pydantic import ValidationError
 
-from date_windows import AZ_TZ, is_valid_date_spec, overlap_clause, resolve_date_window
+from date_windows import AZ_TZ, is_valid_date_spec, overlap_clause, resolve_date_window, timestamp_range_clause
 from run_municipal_agent import (
     GeneralOffensesQueryArgs,
+    GeneralOffensesTool,
     StreetClosuresQueryArgs,
     StreetClosuresTool,
     TempeSenseAgent,
@@ -73,6 +74,61 @@ def test_overlap_clause_uses_utc_timestamp_literals():
     assert clause == (
         "(StartDate < TIMESTAMP '2026-10-19 07:00:00' AND EndDate >= TIMESTAMP '2026-10-17 07:00:00')"
     )
+
+
+# ------------------------------------------------------------- offenses dates
+def test_timestamp_range_clause_uses_single_occurrence_field():
+    clause = timestamp_range_clause("OccurrenceDatetime", resolve_date_window("yesterday", FRI))
+    assert clause == (
+        "(OccurrenceDatetime >= TIMESTAMP '2026-10-15 07:00:00' "
+        "AND OccurrenceDatetime < TIMESTAMP '2026-10-16 07:00:00')"
+    )
+
+
+def test_offenses_build_where_combines_filter_and_date_window():
+    args = GeneralOffensesQueryArgs(where="OffenseCustom LIKE '%THEFT%'", date_range="yesterday")
+    where = GeneralOffensesTool().build_where(args, FRI)
+    assert where.startswith("(OffenseCustom LIKE '%THEFT%') AND (OccurrenceDatetime >= TIMESTAMP")
+    assert "2026-10-15 07:00:00" in where and "2026-10-16 07:00:00" in where
+
+
+def test_offenses_build_where_with_only_date_window():
+    args = GeneralOffensesQueryArgs(date_range="this_weekend")
+    where = GeneralOffensesTool().build_where(args, FRI)
+    assert where.startswith("(OccurrenceDatetime >= TIMESTAMP '2026-10-17 07:00:00'")
+    assert "OccurrenceDatetime < TIMESTAMP '2026-10-19 07:00:00'" in where
+
+
+def test_offenses_invalid_date_range_fails_schema_validation():
+    with pytest.raises(ValidationError):
+        GeneralOffensesQueryArgs(date_range="1669785600000")
+    assert GeneralOffensesQueryArgs(date_range="null").date_range is None
+
+
+def test_offenses_guardrail_rejects_model_written_date_comparison():
+    tool = GeneralOffensesTool()
+    assert tool.validate_where_clause("OccurrenceDatetime >= 1669785600000")
+    assert tool.validate_where_clause("OffenseCustom LIKE '%THEFT%'") == []
+
+
+def test_offenses_date_clause_reaches_arcgis_request():
+    args = GeneralOffensesQueryArgs(where="OffenseCustom LIKE '%THEFT%'", date_range="yesterday")
+    tool = GeneralOffensesTool()
+    captured = {}
+
+    def fake_get(url, params=None, **kw):
+        captured["where"] = params["where"]
+        resp = MagicMock()
+        resp.json.return_value = {"features": []}
+        resp.raise_for_status.return_value = None
+        return resp
+
+    with patch("run_municipal_agent.requests.get", side_effect=fake_get):
+        tool.execute(args, now=FRI)
+
+    assert "OffenseCustom LIKE '%THEFT%'" in captured["where"]
+    assert "OccurrenceDatetime >= TIMESTAMP '2026-10-15 07:00:00'" in captured["where"]
+    assert "OccurrenceDatetime < TIMESTAMP '2026-10-16 07:00:00'" in captured["where"]
 
 
 # ------------------------------------------------------------ closures where
