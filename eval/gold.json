@@ -1,0 +1,355 @@
+{
+  "retrieved_at": "2026-11-13T22:09:03+00:00",
+  "items": {
+    "O01": {
+      "where": "CharacterArea LIKE '%DT%'",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026101835        ",
+        "TE2026102719        ",
+        "TE2026102780        ",
+        "TE2026103001        ",
+        "TE2026103909        "
+      ],
+      "count": 5,
+      "error": null
+    },
+    "O02": {
+      "where": "ObfuscatedAddress LIKE '%APACHE BLVD%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026601891        ",
+        "TE2026601921        "
+      ],
+      "count": 2,
+      "error": null
+    },
+    "O03": {
+      "where": "PlaceName LIKE '%TEMPE MARKETPLACE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026100377        ",
+        "TE2026100721        ",
+        "TE2026100819        ",
+        "TE2026101721        ",
+        "TE2026103622        ",
+        "TE2026104128        ",
+        "TE2026104506        ",
+        "TE2026105246        ",
+        "TE2026107697        ",
+        "TE2026109408        ",
+        "TE2026110309        ",
+        "TE2026601800        ",
+        "TE2026601894        ",
+        "TE2026601929        ",
+        "TE2026601952        "
+      ],
+      "count": 15,
+      "error": null
+    },
+    "O04": {
+      "where": "ObfuscatedAddress LIKE '%MILL AVE%' AND OffenseCustom LIKE '%ASSAULT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026100231        ",
+        "TE2026100584        ",
+        "TE2026100594        ",
+        "TE2026100608        ",
+        "TE2026100617        ",
+        "TE2026100969        ",
+        "TE2026101246        ",
+        "TE2026101304        ",
+        "TE2026103009        ",
+        "TE2026103155        ",
+        "TE2026103369        ",
+        "TE2026103387        ",
+        "TE2026103399        ",
+        "TE2026103400        ",
+        "TE2026103446        ",
+        "TE2026103907        ",
+        "TE2026103914        ",
+        "TE2026104728        ",
+        "TE2026105000        ",
+        "TE2026105019        ",
+        "TE2026105376        ",
+        "TE2026105525        ",
+        "TE2026105767        ",
+        "TE2026105792        ",
+        "TE2026105960        ",
+        "TE2026107869        ",
+        "TE2026108200        ",
+        "TE2026108218        ",
+        "TE2026109482        ",
+        "TE2026110006        ",
+        "TE2026110461        ",
+        "TE2026110984        ",
+        "TE2026111018        "
+      ],
+      "count": 33,
+      "error": null
+    },
+    "O05": {
+      "where": "CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%LIQUOR%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026100196        ",
+        "TE2026100554        ",
+        "TE2026100556        ",
+        "TE2026100573        ",
+        "TE2026100641        ",
+        "TE2026100994        ",
+        "TE2026101009        ",
+        "TE2026102973        ",
+        "TE2026103001        ",
+        "TE2026103017        ",
+        "TE2026103022        ",
+        "TE2026103333        ",
+        "TE2026103403        ",
+        "TE2026103687        ",
+        "TE2026103886        ",
+        "TE2026105678        ",
+        "TE2026105705        ",
+        "TE2026105776        ",
+        "TE2026106181        ",
+        "TE2026107393        ",
+        "TE2026107765        ",
+        "TE2026107784        ",
+        "TE2026107828        ",
+        "TE2026108234        ",
+        "TE2026108782        ",
+        "TE2026109451        ",
+        "TE2026110377        ",
+        "TE2026110385        ",
+        "TE2026110955        "
+      ],
+      "count": 29,
+      "error": null
+    },
+    "O06": {
+      "where": "PlaceName LIKE '%DISTRICT ON APACHE%'",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE20184418          ",
+        "TE202313280         ",
+        "TE2023600878        ",
+        "TE202531057         ",
+        "TE202543354         ",
+        "TE2025600332        ",
+        "TE2026601538        ",
+        "TE2026601762        ",
+        "TE2026601792        ",
+        "TE202698252         "
+      ],
+      "count": 10,
+      "error": null
+    },
+    "O07": {
+      "where": "OffenseCustom LIKE '%THEFT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-17 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-10-18 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026105509        ",
+        "TE2026105520        ",
+        "TE2026105559        ",
+        "TE2026105864        ",
+        "TE2026107293        ",
+        "TE2026601883        ",
+        "TE2026601891        ",
+        "TE2026601892        "
+      ],
+      "count": 8,
+      "error": null
+    },
+    "O08": {
+      "where": "OffenseCustom LIKE '%THEFT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-12 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-13 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [],
+      "count": 0,
+      "error": null
+    },
+    "O09": {
+      "where": "OffenseCustom LIKE '%DRUG%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-02 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-09 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026111395        ",
+        "TE2026111429        ",
+        "TE2026111807        ",
+        "TE2026112236        ",
+        "TE2026112311        ",
+        "TE2026113349        ",
+        "TE2026113758        "
+      ],
+      "count": 7,
+      "error": null
+    },
+    "O10": {
+      "where": "PostalCode = '85281' AND OffenseCustom LIKE '%BURGLARY%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026100681        ",
+        "TE2026101074        ",
+        "TE2026101301        ",
+        "TE2026101344        ",
+        "TE2026101993        ",
+        "TE2026102707        ",
+        "TE2026104321        ",
+        "TE2026105509        ",
+        "TE2026106759        ",
+        "TE2026109898        ",
+        "TE2026601825        ",
+        "TE2026601869        ",
+        "TE2026601877        ",
+        "TE2026601934        "
+      ],
+      "count": 14,
+      "error": null
+    },
+    "C01": {
+      "where": "StreetLocation LIKE '%UNIVERSITY%' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261099",
+        "TCP261398"
+      ],
+      "count": 2,
+      "error": null
+    },
+    "C02": {
+      "where": "StreetLocation LIKE '%RURAL%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [],
+      "count": 0,
+      "error": null
+    },
+    "C03": {
+      "where": "StreetLocation LIKE '%MILL%' AND (StartDate < TIMESTAMP '2026-06-18 07:00:00' AND EndDate >= TIMESTAMP '2026-06-17 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261333",
+        "TCP261419",
+        "TCP261507"
+      ],
+      "count": 3,
+      "error": null
+    },
+    "C04": {
+      "where": "StreetLocation LIKE '%BROADWAY%' OR PermitAddress LIKE '%BROADWAY%'",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261489"
+      ],
+      "count": 1,
+      "error": null
+    },
+    "C05": {
+      "where": "StreetLocation LIKE '%APACHE%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261478"
+      ],
+      "count": 1,
+      "error": null
+    },
+    "C06": {
+      "where": "RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261399",
+        "TCP261401",
+        "TCP261429",
+        "TCP261439",
+        "TCP261440",
+        "TCP261441",
+        "TCP261461",
+        "TCP261486",
+        "TCP261492",
+        "TCP261493",
+        "TCP261494",
+        "TCP261495"
+      ],
+      "count": 12,
+      "error": null
+    },
+    "C07": {
+      "where": "StreetLocation LIKE '%RIO SALADO%' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261429"
+      ],
+      "count": 1,
+      "error": null
+    },
+    "C08": {
+      "where": "StreetLocation LIKE '%PRIEST%' AND (StartDate < TIMESTAMP '2026-06-15 07:00:00' AND EndDate >= TIMESTAMP '2026-06-08 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261334",
+        "TCP261418",
+        "TCP261442",
+        "TCP261468"
+      ],
+      "count": 4,
+      "error": null
+    },
+    "C09": {
+      "where": "StreetLocation LIKE '%SCOTTSDALE%' AND (StartDate < TIMESTAMP '2026-06-18 07:00:00' AND EndDate >= TIMESTAMP '2026-06-17 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [],
+      "count": 0,
+      "error": null
+    },
+    "C10": {
+      "where": "StreetLocation LIKE '%SOUTHERN%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261461"
+      ],
+      "count": 1,
+      "error": null
+    },
+    "C11": {
+      "where": "StreetLocation LIKE '%MILL%' AND RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TCP261333"
+      ],
+      "count": 1,
+      "error": null
+    },
+    "C12": {
+      "where": "StreetLocation LIKE '%UNIVERSITY%' AND RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [],
+      "count": 0,
+      "error": null
+    },
+    "R01": {
+      "where": "ObfuscatedAddress LIKE '%APACHE BLVD%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-12 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-13 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [],
+      "count": 0,
+      "error": null
+    },
+    "R02": {
+      "where": "ObfuscatedAddress LIKE '%7XX%APACHE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026601989        "
+      ],
+      "count": 1,
+      "error": null
+    },
+    "R03": {
+      "where": "CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')",
+      "retrieved_at": "2026-11-13T22:09:03+00:00",
+      "ids": [
+        "TE2026601891        ",
+        "TE2026601907        ",
+        "TE2026601921        ",
+        "TE2026601926        ",
+        "TE2026601945        "
+      ],
+      "count": 5,
+      "error": null
+    }
+  }
+}

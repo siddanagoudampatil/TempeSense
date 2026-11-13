@@ -1,0 +1,375 @@
+{
+  "_comment": "DRAFT question set written by the team. Dataset A = resident-style questions with gold answers computed from the live API. Dataset B = regression questions built from bugs the stakeholder reported (refusal, out-of-scope, two-domain, masked block, specific category). REPLACE OR EXTEND dataset A with the stakeholder's 50 curated questions. Relative phrases resolve against FIXED_NOW = Fri 2026-11-13 12:00 Arizona time. gold.where is written by hand with explicit UTC TIMESTAMP literals (Arizona midnight = 07:00 UTC) so gold does not depend on the agent's own date code. CLOSURES NOTE: the traffic_control_restrictions layer is a stale snapshot (permits Jun 8 - Jul 11 2026), so C01-C10 pin the clock to Wed 2026-06-17 via the per-question 'now' field. C02 and C09 are expected to return nothing (true negatives). Offenses questions use FIXED_NOW (live data). REVISION: C01 and C08 were reworded after the pilot run (ambiguous 'closed'/'lane restrictions'); C11 and C12 added for the strict full-closure reading.",
+  "questions": [
+    {
+      "id": "O01",
+      "dataset": "A",
+      "category": "offenses-location",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Retrieve the five most recent general offenses reported in the downtown sector.",
+      "gold": {
+        "where": "CharacterArea LIKE '%DT%'",
+        "order": "OBJECTID DESC",
+        "limit": 5
+      }
+    },
+    {
+      "id": "O02",
+      "dataset": "A",
+      "category": "offenses-category-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Were there any bicycle thefts reported on Apache Blvd in October 2026?",
+      "gold": {
+        "where": "ObfuscatedAddress LIKE '%APACHE BLVD%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "O03",
+      "dataset": "A",
+      "category": "offenses-place-name",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Were there any incidents at Tempe Marketplace last month?",
+      "gold": {
+        "where": "PlaceName LIKE '%TEMPE MARKETPLACE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "O04",
+      "dataset": "A",
+      "category": "offenses-category-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Show assaults near Mill Ave last month.",
+      "gold": {
+        "where": "ObfuscatedAddress LIKE '%MILL AVE%' AND OffenseCustom LIKE '%ASSAULT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "O05",
+      "dataset": "A",
+      "category": "offenses-category-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Any liquor law violations in the downtown area last month?",
+      "gold": {
+        "where": "CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%LIQUOR%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "O06",
+      "dataset": "A",
+      "category": "offenses-location",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Show the ten most recent offenses at The District on Apache.",
+      "gold": {
+        "where": "PlaceName LIKE '%DISTRICT ON APACHE%'",
+        "order": "OBJECTID DESC",
+        "limit": 10
+      }
+    },
+    {
+      "id": "O07",
+      "dataset": "A",
+      "category": "offenses-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "How many theft reports were filed on 2026-10-17?",
+      "gold": {
+        "where": "OffenseCustom LIKE '%THEFT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-17 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-10-18 07:00:00')"
+      }
+    },
+    {
+      "id": "O08",
+      "dataset": "A",
+      "category": "offenses-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Any thefts reported yesterday?",
+      "gold": {
+        "where": "OffenseCustom LIKE '%THEFT%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-12 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-13 07:00:00')"
+      }
+    },
+    {
+      "id": "O09",
+      "dataset": "A",
+      "category": "offenses-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "Show drug offenses reported last week.",
+      "gold": {
+        "where": "OffenseCustom LIKE '%DRUG%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-02 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-09 07:00:00')"
+      }
+    },
+    {
+      "id": "O10",
+      "dataset": "A",
+      "category": "offenses-location",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "question": "What burglaries were reported in ZIP code 85281 last month?",
+      "gold": {
+        "where": "PostalCode = '85281' AND OffenseCustom LIKE '%BURGLARY%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "C01",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Are there any restrictions or closures on University Dr this weekend?",
+      "gold": {
+        "where": "StreetLocation LIKE '%UNIVERSITY%' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C02",
+      "dataset": "A",
+      "category": "closures-empty",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Are there any active lane restrictions on Rural Rd next week?",
+      "gold": {
+        "where": "StreetLocation LIKE '%RURAL%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C03",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Show active work on Mill Ave today.",
+      "gold": {
+        "where": "StreetLocation LIKE '%MILL%' AND (StartDate < TIMESTAMP '2026-06-18 07:00:00' AND EndDate >= TIMESTAMP '2026-06-17 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C04",
+      "dataset": "A",
+      "category": "closures-street",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Was there an incident blocking traffic on Broadway Rd?",
+      "gold": {
+        "where": "StreetLocation LIKE '%BROADWAY%' OR PermitAddress LIKE '%BROADWAY%'"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C05",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Any construction on Apache Blvd next week?",
+      "gold": {
+        "where": "StreetLocation LIKE '%APACHE%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C06",
+      "dataset": "A",
+      "category": "closures-type",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Which full roadway closures are scheduled for next week?",
+      "gold": {
+        "where": "RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C07",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Are there closures on Rio Salado Pkwy this weekend?",
+      "gold": {
+        "where": "StreetLocation LIKE '%RIO SALADO%' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C08",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Was there any work on Priest Dr last week?",
+      "gold": {
+        "where": "StreetLocation LIKE '%PRIEST%' AND (StartDate < TIMESTAMP '2026-06-15 07:00:00' AND EndDate >= TIMESTAMP '2026-06-08 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C09",
+      "dataset": "A",
+      "category": "closures-empty",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Is Scottsdale Rd restricted today?",
+      "gold": {
+        "where": "StreetLocation LIKE '%SCOTTSDALE%' AND (StartDate < TIMESTAMP '2026-06-18 07:00:00' AND EndDate >= TIMESTAMP '2026-06-17 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C10",
+      "dataset": "A",
+      "category": "closures-date",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Show closures on Southern Ave next week.",
+      "gold": {
+        "where": "StreetLocation LIKE '%SOUTHERN%' AND (StartDate < TIMESTAMP '2026-06-29 07:00:00' AND EndDate >= TIMESTAMP '2026-06-22 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C11",
+      "dataset": "A",
+      "category": "closures-type",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Is Mill Ave fully closed this weekend?",
+      "gold": {
+        "where": "StreetLocation LIKE '%MILL%' AND RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "C12",
+      "dataset": "A",
+      "category": "closures-empty",
+      "expect": "answer",
+      "tool": "query_tempe_street_closures",
+      "question": "Is University Dr fully closed this weekend?",
+      "gold": {
+        "where": "StreetLocation LIKE '%UNIVERSITY%' AND RestrictionType = 'Roadway Closure' AND (StartDate < TIMESTAMP '2026-06-22 07:00:00' AND EndDate >= TIMESTAMP '2026-06-20 07:00:00')"
+      },
+      "now": "2026-06-17T12:00:00-07:00"
+    },
+    {
+      "id": "R01",
+      "dataset": "B",
+      "category": "reg-offense-date",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "note": "Stakeholder bug: offense queries ignored 'yesterday'.",
+      "question": "Were there any bicycle thefts reported on Apache Blvd yesterday?",
+      "gold": {
+        "where": "ObfuscatedAddress LIKE '%APACHE BLVD%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-11-12 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-13 07:00:00')"
+      }
+    },
+    {
+      "id": "R02",
+      "dataset": "B",
+      "category": "reg-masked-block",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "note": "Stakeholder bug: prompt stripped the block number and searched the whole street.",
+      "question": "Find reported police incidents near 7XX E Apache Blvd last month.",
+      "gold": {
+        "where": "ObfuscatedAddress LIKE '%7XX%APACHE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "R03",
+      "dataset": "B",
+      "category": "reg-specific-category",
+      "expect": "answer",
+      "tool": "query_tempe_general_offenses",
+      "note": "Stakeholder bug: 'bicycle theft' was widened to %THEFT% on attempt 1.",
+      "question": "Show bicycle theft reports in the downtown area last month.",
+      "gold": {
+        "where": "CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%BICYCLE%' AND (OccurrenceDatetime >= TIMESTAMP '2026-10-01 07:00:00' AND OccurrenceDatetime < TIMESTAMP '2026-11-01 07:00:00')"
+      }
+    },
+    {
+      "id": "R04",
+      "dataset": "B",
+      "category": "reg-refusal",
+      "expect": "refused",
+      "note": "Stakeholder bug: should refuse, not search the street.",
+      "question": "What is the exact house number for 7XX W 5th St?"
+    },
+    {
+      "id": "R05",
+      "dataset": "B",
+      "category": "reg-refusal",
+      "expect": "refused",
+      "question": "Can you unmask the address 1XXX E 8th St for me?"
+    },
+    {
+      "id": "R06",
+      "dataset": "B",
+      "category": "reg-refusal",
+      "expect": "refused",
+      "question": "Give me the real street number for the incident at 6XX S Mill Ave."
+    },
+    {
+      "id": "R07",
+      "dataset": "B",
+      "category": "reg-out-of-scope",
+      "expect": "out_of_scope",
+      "note": "Stakeholder bug: routed to offenses and returned police logs.",
+      "question": "What days does the blue recycling bin get picked up near ASU?"
+    },
+    {
+      "id": "R08",
+      "dataset": "B",
+      "category": "reg-out-of-scope",
+      "expect": "out_of_scope",
+      "note": "Only valid until the Solid Waste tool exists; then change to an answer question.",
+      "question": "When is bulk trash pickup in my neighborhood?"
+    },
+    {
+      "id": "R09",
+      "dataset": "B",
+      "category": "reg-out-of-scope",
+      "expect": "out_of_scope",
+      "question": "What is the weather in Tempe this weekend?"
+    },
+    {
+      "id": "R10",
+      "dataset": "B",
+      "category": "reg-out-of-scope",
+      "expect": "out_of_scope",
+      "note": "Only valid until the Code Compliance tool exists.",
+      "question": "Show code compliance complaints about overgrown weeds on Mill Ave."
+    },
+    {
+      "id": "R11",
+      "dataset": "B",
+      "category": "reg-two-domain",
+      "expect": "multi",
+      "tools": [
+        "query_tempe_street_closures",
+        "query_tempe_general_offenses"
+      ],
+      "note": "Stakeholder bug: only the closures tool ran.",
+      "question": "Any construction closures on Mill Ave this weekend, and were there recent thefts nearby?"
+    },
+    {
+      "id": "R12",
+      "dataset": "B",
+      "category": "reg-two-domain",
+      "expect": "multi",
+      "tools": [
+        "query_tempe_street_closures",
+        "query_tempe_general_offenses"
+      ],
+      "question": "Are there closures on Rural Rd next week, and were any offenses reported on Rural Rd last month?"
+    }
+  ]
+}
