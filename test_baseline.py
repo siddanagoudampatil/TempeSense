@@ -235,7 +235,9 @@ def test_agent_mocked_street_closures_end_to_end():
             order_by_fields="OBJECTID DESC",
         )
         with patch.object(agent, "_llm_extract_parameters", return_value=mock_args):
-            result = agent.run("Is University Dr closed for construction this weekend?")
+            # No time phrase: the agent now applies any named window it finds in the question
+            # (see test_agent_guards.py), and the live closures layer only holds a past snapshot.
+            result = agent.run("What construction or restrictions are on University Dr?")
 
         assert result["tool"] == "query_tempe_street_closures"
         assert result["record_count"] >= 1

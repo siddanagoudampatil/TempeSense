@@ -25,6 +25,7 @@ METRICS = [
     ("f1", "Record-set F1 vs gold", "num", "answer questions with a gold set"),
     ("false_negative_zero", "False-negative zero rate", "pct", "returned nothing although gold is non-empty (lower is better)"),
     ("ids_missing_rate", "Records without id field", "pct", "successful runs whose records carry no citable id (lower is better)"),
+    ("relaxed_rate", "Relaxed-query rate", "pct", "successful runs where the agent broadened its own query after finding nothing (flagged to the user)"),
     ("behavior_accuracy", "Refuse / decline / multi-tool correct", "pct", "refusal, out-of-scope and two-domain questions"),
     ("median_latency_s", "Median latency (s)", "num", ""),
     ("mean_llm_calls", "LLM calls per question", "num", ""),

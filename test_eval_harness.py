@@ -390,3 +390,10 @@ def test_report_collapses_repeated_failures():
         r["error"] = "ValidationError: x"
     md = report.build_markdown(rows, {})
     assert md.count("ValidationError: x") == 1 and "(x3)" in md
+
+
+def test_relaxed_rate_is_reported():
+    gold = {"ids": ["T1"], "count": 1, "error": None}
+    rows = [metrics.score_record(_rec(ids=["T1"], n_records=1, relaxed=r), _q("C03"), gold) for r in (True, False, False, False)]
+    assert metrics.aggregate(rows)["relaxed_rate"] == 0.25
+    assert "Relaxed-query rate" in report.build_markdown(rows, {})

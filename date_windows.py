@@ -128,3 +128,18 @@ def overlap_clause(start_field: str, end_field: str, window: Tuple[datetime, dat
     """
     start, end = window
     return f"({start_field} < {_utc_literal(end)} AND {end_field} >= {_utc_literal(start)})"
+
+
+_NAMED_PATTERNS = {
+    spec: re.compile(r"\b" + spec.replace("_", r"[\s-]+") + r"\b", re.IGNORECASE) for spec in NAMED_SPECS
+}
+
+
+def named_window_in(text: str) -> Optional[str]:
+    """The one named window the question's wording points at ("last month" -> "last_month"), or None.
+
+    None when no window matches or when two different windows match: that is a two-part question and
+    guessing which one applies would be worse than leaving the model's choice alone.
+    """
+    found = {spec for spec, pattern in _NAMED_PATTERNS.items() if pattern.search(text or "")}
+    return next(iter(found)) if len(found) == 1 else None

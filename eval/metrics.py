@@ -105,6 +105,7 @@ def aggregate(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "f1": _mean([r["f1"] for r in gold_rows]),
         "false_negative_zero": _rate([r.get("false_negative_zero") for r in gold_rows]),
         "ids_missing_rate": _rate([r["ids_missing"] for r in ans if r["success"]]),
+        "relaxed_rate": _rate([r.get("relaxed") for r in ans if r["success"]]),
         "behavior_accuracy": _rate([r["behavior_correct"] for r in behav]),
         "median_latency_s": statistics.median(lat) if lat else None,
         "mean_llm_calls": _mean([r.get("llm_calls") for r in rows]),

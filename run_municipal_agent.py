@@ -25,7 +25,9 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import requests
 
+from scope_guard import classify_request, drop_unrequested_restriction_filter, has_time_cue, masked_blocks, split_multiword_like
 from date_windows import (
+    named_window_in,
     AZ_TZ,
     NAMED_SPECS,
     is_valid_date_spec,
@@ -276,7 +278,10 @@ class GeneralOffensesTool(BaseMunicipalTool):
         "Explore alternative candidate possibilities: "
         "(1) If you searched ObfuscatedAddress for a named complex or venue, try PlaceName LIKE '%keyword%'. "
         "(2) If an exact house number was supplied, remove the number and search the street corridor in ObfuscatedAddress (e.g. %UNIVERSITY DR%). "
-        "(3) Use OR disjunctions to cover both PlaceName and ObfuscatedAddress."
+        "(3) Use OR disjunctions to cover both PlaceName and ObfuscatedAddress. "
+        "(4) If a specific crime word returned nothing, broaden it to its family (e.g. %SHOPLIFT% -> %THEFT%). "
+        "(5) If a masked block like 4XX returned nothing, search the street corridor instead. "
+        "(6) Keep date_range exactly as the user asked."
     )
     system_prompt = (
         "You are an autonomous municipal query agent for the City of Tempe ArcGIS REST API.\n"
@@ -308,7 +313,13 @@ class GeneralOffensesTool(BaseMunicipalTool):
         "4. If an offense category is requested alongside a location, combine with AND:\n"
         "   e.g. CharacterArea LIKE '%DT%' AND OffenseCustom LIKE '%THEFT%'\n"
         "5. If the user mentions a time ('today', 'yesterday', 'this weekend', 'last week'), set date_range to a valid named window. "
-        "Keep date_range null when no time period is requested.\n\n"
+        "Keep date_range null when no time period is requested.\n"
+        "6. SPECIFIC CATEGORY FIRST: when the user names a specific kind of crime, filter OffenseCustom on the most specific word they used, "
+        "not on the broad family. Match ONE distinctive word: 'license plate thefts' -> OffenseCustom LIKE '%PLATE%' (not '%THEFT%'). "
+        "Offense labels put THEFT first ('THEFT OF ...', 'THEFT FROM ...'), so never write the words in reverse order such as '%PLATE THEFT%'. "
+        "Only use the broad word (%THEFT%, %ASSAULT%) when the user used only the broad word.\n"
+        "7. MASKED BLOCK FIRST: if the user types an already-masked block such as '4XX E LEMON ST', match it literally first: "
+        "ObfuscatedAddress LIKE '%4XX E LEMON ST%'. Do not widen to the whole street unless that returns nothing.\n\n"
         "ANTI-HALLUCINATION RULES:\n"
         "- ONLY use fields listed in the VALID SCHEMA FIELDS above. NEVER use 'Location', 'City', 'Address', or 'Area'.\n"
         "- 'General offenses' refers to the dataset itself; NEVER filter by (OffenseCustom LIKE '%GENERAL%'). Only filter OffenseCustom if a specific crime like 'theft' or 'burglary' is explicitly requested.\n"
@@ -518,11 +529,13 @@ class StreetClosuresTool(BaseMunicipalTool):
         "   e.g. StreetLocation LIKE '%UNIVERSITY%'\n"
         "2. If cross streets are mentioned, filter by LocationFrom/LocationTo or StreetLocation.\n"
         "3. If a specific work type is requested (e.g. 'sewer work', 'water repair'), filter WorkType LIKE '%SEWER%'.\n"
-        "4. If a full closure is requested, filter RestrictionType LIKE '%Closure%'.\n"
+        "4. Do not add any RestrictionType condition unless the user explicitly says closed, closure, closures, or shut down; "
+        "then use RestrictionType LIKE '%Closure%'. Never write NOT LIKE on RestrictionType.\n"
         "5. If the user mentions a time ('today', 'this weekend', 'next week', 'in March'), set date_range to one of: "
     "today, tomorrow, yesterday, this_weekend, next_weekend, this_week, next_week, last_week, this_month, next_month, last_month, "
     "next_7_days, next_30_days, last_7_days, last_30_days, or YYYY-MM-DD, or YYYY-MM-DD..YYYY-MM-DD. "
-    "For 'active', 'current' or 'ongoing' work with no time given, use today. Otherwise leave date_range null.\n"
+    "For 'active', 'current' or 'ongoing' work with no time given, use today. "
+    "Otherwise leave date_range null: a past-tense verb ('was', 'were') or the absence of a time word is NOT a time period.\n"
         "6. If no specific filter applies, default to '1=1'.\n\n"
         "ANTI-HALLUCINATION RULES:\n"
         "- ONLY use fields listed in the VALID SCHEMA FIELDS above. NEVER use 'StreetName', 'RoadName', 'ClosureType', 'Description', 'City', or 'Location'.\n"
@@ -712,10 +725,19 @@ class MunicipalAgent:
         """Extract arguments and re-ask the model until the guardrail accepts the where clause."""
         feedback = initial_feedback
         problems: List[str] = []
-        for _ in range(max_attempts):
+        for attempt in range(max_attempts):
             args = self._llm_extract_parameters(user_query, tool=tool, error_feedback=feedback)
             problems = tool.validate_where_clause(args.where)
             if not problems:
+                args = self._drop_unrequested_date(user_query, args)
+                missing = self._missing_masked_blocks(user_query, args)
+                if missing and attempt < max_attempts - 1:
+                    print(f"  [GUARDRAIL TRIGGERED] Masked block(s) {missing} typed by the user but missing from where")
+                    feedback = (
+                        f"The user typed the already-masked block {missing}. Match it literally first, e.g. "
+                        f"ObfuscatedAddress LIKE '%{missing[0]} ...%'. Your where was: {args.where}"
+                    )
+                    continue
                 return args
             print(f"  [GUARDRAIL TRIGGERED] Rejected where clause: {problems}")
             feedback = (
@@ -725,6 +747,33 @@ class MunicipalAgent:
             if "date_range" in tool.args_schema.model_fields:
                 feedback += " Do not write date comparisons in where; use the date_range key for time."
         raise ValueError(f"guardrail still rejecting the where clause after {max_attempts} attempts: {problems}")
+
+    @staticmethod
+    def _drop_unrequested_date(user_query: str, args: BaseModel) -> BaseModel:
+        """The model sometimes adds a time window the user never asked for. Drop it when the
+        question contains no time wording at all."""
+        if getattr(args, "date_range", None) and not has_time_cue(user_query):
+            print(f"  [GUARDRAIL] Dropped date_range '{args.date_range}': the question mentions no time period")
+            args = args.model_copy(update={"date_range": None})
+        named = named_window_in(user_query)
+        if named and "date_range" in type(args).model_fields and getattr(args, "date_range", None) != named:
+            print(f"  [GUARDRAIL] date_range {getattr(args, 'date_range', None)!r} -> {named!r}: the question's wording names that window")
+            args = args.model_copy(update={"date_range": named})
+        where, dropped = drop_unrequested_restriction_filter(user_query, getattr(args, "where", "") or "")
+        if dropped:
+            print(f"  [GUARDRAIL] Dropped an unrequested RestrictionType filter: {args.where!r} -> {where!r}")
+            args = args.model_copy(update={"where": where})
+        rewritten, changed = split_multiword_like(getattr(args, "where", "") or "")
+        if changed:
+            print(f"  [GUARDRAIL] Made OffenseCustom phrase order-independent: {args.where!r} -> {rewritten!r}")
+            args = args.model_copy(update={"where": rewritten})
+        return args
+
+    @staticmethod
+    def _missing_masked_blocks(user_query: str, args: BaseModel) -> List[str]:
+        """Masked blocks the user typed (e.g. 7XX) that the where clause does not mention."""
+        where = (getattr(args, "where", "") or "").upper()
+        return [b for b in masked_blocks(user_query) if b not in where]
 
     def _stop(self, user_query: str, tool: BaseMunicipalTool, reason: str) -> Dict[str, Any]:
         """End a run cleanly with a readable reason instead of a traceback."""
@@ -811,6 +860,22 @@ class MunicipalAgent:
         print("  TEMPESENSE: AUTONOMOUS AGENT RUN")
         print("=" * 80)
         print(f"[INPUT QUERY]: \"{user_query}\"\n")
+
+        # Step 0: scope gate. Refuse unmasking and decline unsupported domains before any LLM or API call.
+        blocked = classify_request(user_query)
+        if blocked is not None:
+            status, message = blocked
+            print(f"[STEP 0: SCOPE GATE] {status.upper()}: {message}\n")
+            return {
+                "query": user_query,
+                "status": status,
+                "message": message,
+                "tool": None,
+                "tools": [],
+                "arguments": None,
+                "record_count": 0,
+                "records": [],
+            }
 
         # Step 1: Perception & Dynamic Intent Routing
         print("[STEP 1: PERCEPTION & INTENT MAPPING]")
